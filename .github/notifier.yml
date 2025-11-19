@@ -1,0 +1,62 @@
+name: Solution Upload Notifier
+
+on:
+  push:
+    paths:
+      - "*/*/*.py"
+      - "*/*/*.js"
+      - "*/*/*.java"
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Get newly ADDED files only
+      - name: Get newly added solution files
+        id: files
+        run: |
+          added_files=$(git diff --name-only --diff-filter=A HEAD~1 HEAD | grep -E ".+/.+/.+\.(py|js|java)$" || true)
+          echo "added=$added_files"
+          echo "added=$added_files" >> $GITHUB_OUTPUT
+
+      - name: Exit if no new solution files
+        if: ${{ steps.files.outputs.added == '' }}
+        run: |
+          echo "No new solution files added."
+          exit 0
+
+      - name: Process each new solution file
+        env:
+          API_URL: ${{ secrets.NOTIFIER_API_URL }}
+          API_SECRET: ${{ secrets.NOTIFIER_API_SECRET }}
+          CHANNEL_ID: ${{ secrets.NOTIFIER_CHANNEL_ID }}
+        run: |
+          for file in ${{ steps.files.outputs.added }}; do
+            echo "Processing file: $file"
+
+            # extract folder and filename parts
+            username=$(echo $file | cut -d'/' -f1)
+            week=$(echo $file | cut -d'/' -f2)
+            filename=$(echo $file | cut -d'/' -f3)
+
+            # remove extensions (.py, .js, .java)
+            difficulty=$(echo $filename | sed 's/\.[^.]*$//')
+
+            message="사용자 ${username}님께서 ${week}의 문제 ${difficulty}에 대한 솔루션을 업로드하셨습니다."
+
+            echo "Sending: $message"
+
+            # Send API request
+            curl -X POST "$API_URL" \
+              -H "Content-Type: application/json" \
+              -H "X-API-Key: $API_SECRET" \
+              -d "{
+                \"channelId\": \"$CHANNEL_ID\",
+                \"message\": \"$message\",
+                \"type\": \"channel\"
+              }"
+          done
