@@ -14,16 +14,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # fetch at least 2 commits
 
-      # Get newly ADDED files only
+      - name: Ensure previous commit exists
+        run: |
+          if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+            echo "No previous commit — skipping diff."
+            exit 0
+          fi
+
       - name: Get newly added solution files
         id: files
         run: |
-          added_files=$(git diff --name-only --diff-filter=A HEAD~1 HEAD | grep -E ".+/.+/.+\.(py|js|java)$" || true)
-          echo "added=$added_files"
-          echo "added=$added_files" >> $GITHUB_OUTPUT
+          added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD | grep -E ".+/.+/.+\.(py|js|java)$" || true)
+          echo "added=$added"
+          echo "added=$added" >> $GITHUB_OUTPUT
 
-      - name: Exit if no new solution files
+      - name: Exit if no new solutions
         if: ${{ steps.files.outputs.added == '' }}
         run: |
           echo "No new solution files added."
@@ -34,23 +42,21 @@ jobs:
           API_URL: ${{ secrets.NOTIFIER_API_URL }}
           API_SECRET: ${{ secrets.NOTIFIER_API_SECRET }}
           CHANNEL_ID: ${{ secrets.NOTIFIER_CHANNEL_ID }}
+          ADDED_FILES: ${{ steps.files.outputs.added }}
         run: |
-          for file in ${{ steps.files.outputs.added }}; do
-            echo "Processing file: $file"
+          for file in $ADDED_FILES; do
+            echo "Processing $file"
 
-            # extract folder and filename parts
-            username=$(echo $file | cut -d'/' -f1)
-            week=$(echo $file | cut -d'/' -f2)
-            filename=$(echo $file | cut -d'/' -f3)
+            username=$(echo "$file" | cut -d'/' -f1)
+            week=$(echo "$file" | cut -d'/' -f2)
+            filename=$(echo "$file" | cut -d'/' -f3)
 
-            # remove extensions (.py, .js, .java)
-            difficulty=$(echo $filename | sed 's/\.[^.]*$//')
+            difficulty=$(echo "$filename" | sed 's/\.[^.]*$//')
 
             message="사용자 ${username}님께서 ${week}의 문제 ${difficulty}에 대한 솔루션을 업로드하셨습니다."
 
             echo "Sending: $message"
 
-            # Send API request
             curl -X POST "$API_URL" \
               -H "Content-Type: application/json" \
               -H "X-API-Key: $API_SECRET" \
