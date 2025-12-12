@@ -7,3 +7,4 @@ def solution(nums):
         return nums_len
     else:
         return set_len
+    
