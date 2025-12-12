@@ -19,3 +19,4 @@ def solution(genres, plays):
             answer.append(i)
         
     return answer
+    
