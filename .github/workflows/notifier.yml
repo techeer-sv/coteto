@@ -26,10 +26,19 @@ jobs:
 
       - name: Get newly added solution files
         id: files
+        shell: bash
         run: |
-          added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD | grep -E ".+/.+/.+\.(py|js|java)$" || true)
-          echo "added=$added"
-          echo "added=$added" >> $GITHUB_OUTPUT
+          added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD \
+            | grep -E ".+/.+/.+\.(py|js|java)$" || true)
+
+          echo "Detected files:"
+          echo "$added"
+
+          {
+            echo "added<<EOF"
+            echo "$added"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Exit if no new solutions
         if: ${{ steps.files.outputs.added == '' }}
@@ -43,21 +52,24 @@ jobs:
           API_SECRET: ${{ secrets.NOTIFIER_API_SECRET }}
           CHANNEL_ID: ${{ secrets.NOTIFIER_CHANNEL_ID }}
           ADDED_FILES: ${{ steps.files.outputs.added }}
+        shell: bash
         run: |
-          for file in $ADDED_FILES; do
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+
             echo "Processing $file"
 
             username=$(echo "$file" | cut -d'/' -f1)
             week=$(echo "$file" | cut -d'/' -f2)
             filename=$(echo "$file" | cut -d'/' -f3)
 
-            difficulty=$(echo "$filename" | sed 's/\.[^.]*$//')
+            difficulty="${filename%.*}"
 
             message="사용자 ${username}님께서 ${week}의 문제 ${difficulty}에 대한 솔루션을 업로드하셨습니다."
 
             echo "Sending: $message"
 
-            curl -X POST "$API_URL" \
+            curl -s -X POST "$API_URL" \
               -H "Content-Type: application/json" \
               -H "X-API-Key: $API_SECRET" \
               -d "{
@@ -65,4 +77,4 @@ jobs:
                 \"message\": \"$message\",
                 \"type\": \"channel\"
               }"
-          done
+          done <<< "$ADDED_FILES"
