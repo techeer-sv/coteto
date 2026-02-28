@@ -20,21 +20,21 @@ jobs:
       - name: Ensure previous commit exists
         run: |
           if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+            echo "No previous commit — skipping diff."
             exit 0
           fi
 
       - name: Get newly added solution files
         id: files
+        shell: bash
         run: |
-          files=$(jq -r '.commits[].added[]?' "$GITHUB_EVENT_PATH" \
+          added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD \
             | grep -E ".+/.+/.+\.(py|js|java)$" || true)
-
-          echo "Detected:"
-          echo "$files"
-
+          echo "Detected files:"
+          echo "$added"
           {
             echo "added<<EOF"
-            echo "$files"
+            echo "$added"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
