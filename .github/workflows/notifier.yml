@@ -20,13 +20,11 @@ jobs:
       - name: Ensure previous commit exists
         run: |
           if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
-            echo "No previous commit — skipping diff."
             exit 0
           fi
 
       - name: Get newly added solution files
         id: files
-        shell: bash
         run: |
           added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD \
             | grep -E ".+/.+/.+\.(py|js|java)$" || true)
@@ -41,11 +39,10 @@ jobs:
         if: ${{ steps.files.outputs.added == '' }}
         run: exit 0
 
-      - name: Send Slack message (formatted)
+      - name: Send Slack message
         env:
           WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           ADDED_FILES: ${{ steps.files.outputs.added }}
-        shell: bash
         run: |
           while IFS= read -r file; do
             [ -z "$file" ] && continue
@@ -56,37 +53,37 @@ jobs:
 
             difficulty="${filename%.*}"
 
-            payload=$(cat <<EOF
-            {
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "✅ New Solution Uploaded"
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*👤 User:*\n${username}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*📅 Week:*\n${week}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*📘 Problem:*\n${difficulty}"
-                    }
-                  ]
-                }
-              ]
-            }
-            EOF
-            )
+payload=$(cat <<EOF
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "✅ New Solution Uploaded"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*👤 User:*\n${username}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*📅 Week:*\n${week}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*📘 Problem:*\n${difficulty}"
+        }
+      ]
+    }
+  ]
+}
+EOF
+)
 
             curl -X POST "$WEBHOOK" \
               -H "Content-type: application/json" \
