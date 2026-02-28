@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # fetch at least 2 commits
+          fetch-depth: 2
 
       - name: Ensure previous commit exists
         run: |
@@ -31,9 +31,6 @@ jobs:
           added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD \
             | grep -E ".+/.+/.+\.(py|js|java)$" || true)
 
-          echo "Detected files:"
-          echo "$added"
-
           {
             echo "added<<EOF"
             echo "$added"
@@ -42,22 +39,16 @@ jobs:
 
       - name: Exit if no new solutions
         if: ${{ steps.files.outputs.added == '' }}
-        run: |
-          echo "No new solution files added."
-          exit 0
+        run: exit 0
 
-      - name: Process each new solution file
+      - name: Send Slack message (formatted)
         env:
-          API_URL: ${{ secrets.NOTIFIER_API_URL }}
-          API_SECRET: ${{ secrets.NOTIFIER_API_SECRET }}
-          CHANNEL_ID: ${{ secrets.NOTIFIER_CHANNEL_ID }}
+          WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           ADDED_FILES: ${{ steps.files.outputs.added }}
         shell: bash
         run: |
           while IFS= read -r file; do
             [ -z "$file" ] && continue
-
-            echo "Processing $file"
 
             username=$(echo "$file" | cut -d'/' -f1)
             week=$(echo "$file" | cut -d'/' -f2)
@@ -65,16 +56,40 @@ jobs:
 
             difficulty="${filename%.*}"
 
-            message="사용자 ${username}님께서 ${week}의 문제 ${difficulty}에 대한 솔루션을 업로드하셨습니다."
+            payload=$(cat <<EOF
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "✅ New Solution Uploaded"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*👤 User:*\n${username}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*📅 Week:*\n${week}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*📘 Problem:*\n${difficulty}"
+                    }
+                  ]
+                }
+              ]
+            }
+            EOF
+            )
 
-            echo "Sending: $message"
+            curl -X POST "$WEBHOOK" \
+              -H "Content-type: application/json" \
+              --data "$payload"
 
-            curl -s -X POST "$API_URL" \
-              -H "Content-Type: application/json" \
-              -H "X-API-Key: $API_SECRET" \
-              -d "{
-                \"channelId\": \"$CHANNEL_ID\",
-                \"message\": \"$message\",
-                \"type\": \"channel\"
-              }"
           done <<< "$ADDED_FILES"
