@@ -26,12 +26,15 @@ jobs:
       - name: Get newly added solution files
         id: files
         run: |
-          added=$(git diff --name-only --diff-filter=A HEAD~1 HEAD \
+          files=$(jq -r '.commits[].added[]?' "$GITHUB_EVENT_PATH" \
             | grep -E ".+/.+/.+\.(py|js|java)$" || true)
+
+          echo "Detected:"
+          echo "$files"
 
           {
             echo "added<<EOF"
-            echo "$added"
+            echo "$files"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
