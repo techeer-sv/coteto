@@ -53,37 +53,37 @@ jobs:
 
             difficulty="${filename%.*}"
 
-payload=$(cat <<EOF
-{
-  "blocks": [
-    {
-      "type": "header",
-      "text": {
-        "type": "plain_text",
-        "text": "✅ New Solution Uploaded"
-      }
-    },
-    {
-      "type": "section",
-      "fields": [
-        {
-          "type": "mrkdwn",
-          "text": "*👤 User:*\n${username}"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*📅 Week:*\n${week}"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*📘 Problem:*\n${difficulty}"
-        }
-      ]
-    }
-  ]
-}
-EOF
-)
+          payload=$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "✅ New Solution Uploaded"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*👤 User:*\n${username}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*📅 Week:*\n${week}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*📘 Problem:*\n${difficulty}"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )
 
             curl -X POST "$WEBHOOK" \
               -H "Content-type: application/json" \
