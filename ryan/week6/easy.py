@@ -4,16 +4,18 @@
 2. 결과로 나온 수에 같은 작업을 1이 될 때까지 반복합니다. 
 """
 
-def solution(num, count=0):
-    if num == 1:
-        return count
+def solution(num):
+    def collatz(n, count):
+        if n == 1:
+            return count
+        if count == 500:
+            return -1
+        
+        if n % 2 == 0:
+            return collatz(n // 2, count + 1)
+        else:
+            return collatz(n * 3 + 1, count + 1)
     
-    if count == 500:
-        return -1
-    
-    if num % 2 == 0:
-        return solution(num // 2, count + 1)
-    else:
-        return solution(num * 3 + 1, count + 1)
+    return collatz(num, 0)
 
 print(solution(16))
